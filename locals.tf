@@ -2,7 +2,6 @@ locals {
   # General
   rg_name   = "rg-${var.prefix}-${var.environment_name}"
   
-  subnet_name = "default"
   nsg_name   = "nsg-${var.prefix}-${var.environment_name}-default"
   
   lb_name = "lb-${var.prefix}-${var.environment_name}"

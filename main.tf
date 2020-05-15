@@ -16,8 +16,17 @@ resource "azurerm_resource_group" "example" {
   }
 }
 
+# GET: Virtual Network 
+data "azurerm_virtual_network" "example" {
+  resource_group_name = var.vnet_rg_name
+  name                = var.vnet_name
+}
+
 # CREATE: Network Security Group - Default rules.
+# IF: Subnet doesn't exists
 resource "azurerm_network_security_group" "example" {
+  count = contains(data.azurerm_virtual_network.example.subnets, var.subnet_name) ? 0 : 1
+
   name                = local.nsg_name
   location            = azurerm_resource_group.example.location
   resource_group_name = var.vnet_rg_name
@@ -36,18 +45,15 @@ resource "azurerm_network_security_group" "example" {
   }
 }
 
-# GET: Virtual Network 
-data "azurerm_virtual_network" "example" {
-  resource_group_name = var.vnet_rg_name
-  name                = var.vnet_name
-}
-
 # CREATE: Subnet
+# IF: Subnet doesn't exists
 resource "azurerm_subnet" "example" {
-  name                 = local.subnet_name
+  count = contains(data.azurerm_virtual_network.example.subnets, var.subnet_name) ? 0 : 1
+
+  name                 = var.subnet_name
   resource_group_name  = var.vnet_rg_name
   virtual_network_name = var.vnet_name
-  address_prefixes     = ["10.0.1.0/24"]
+  address_prefixes     = [var.subnet_address_space]
 
   enforce_private_link_endpoint_network_policies = true
   enforce_private_link_service_network_policies = true
@@ -55,8 +61,125 @@ resource "azurerm_subnet" "example" {
 
 # UPDATE: Assign Default Network Security Group to Default Subnet
 resource "azurerm_subnet_network_security_group_association" "example" {
-  subnet_id                 = azurerm_subnet.example.id
-  network_security_group_id = azurerm_network_security_group.example.id
+  count = contains(data.azurerm_virtual_network.example.subnets, var.subnet_name) ? 0 : 1
+
+  subnet_id                 = azurerm_subnet.example.0.id
+  network_security_group_id = azurerm_network_security_group.example.0.id
+}
+
+# GET: Subnet 
+# Subnet must have enabled:
+#  - enforce_private_link_endpoint_network_policies
+#  - enforce_private_link_service_network_policies
+data "azurerm_subnet" "example" {
+  name                 = var.subnet_name
+  resource_group_name  = var.vnet_rg_name
+  virtual_network_name = var.vnet_name
+
+  depends_on = [
+    azurerm_subnet.example
+  ]
+}
+
+
+# CREATE: Internal Standard Load Balancer
+resource "azurerm_lb" "example" {
+  name                = local.lb_name
+  resource_group_name = azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  sku                 = "Standard"
+
+  frontend_ip_configuration {
+    name = local.frontend_ip_configuration_name
+    subnet_id = data.azurerm_subnet.example.id
+    private_ip_address_allocation = "Dynamic"
+  }
+  
+  tags = merge(
+    local.common_tags, 
+    {
+        display_name = "Azure Load Balancer"
+    }
+  )
+  
+  lifecycle {
+    ignore_changes = [
+      tags["created"],
+    ]
+  }
+}
+
+# UPDATE: Backend Address Pool for Internal Standard Load Balancer 
+resource "azurerm_lb_backend_address_pool" "example" {
+  resource_group_name = azurerm_resource_group.example.name
+  loadbalancer_id     = azurerm_lb.example.id
+  name                = local.backend_address_pool_name
+}
+
+# UPDATE: NAT rules for Internal Standard Load Balancer 
+resource "azurerm_lb_nat_rule" "example" {
+  count               = length(var.remote_port)
+  
+  resource_group_name = azurerm_resource_group.example.name
+  loadbalancer_id     = azurerm_lb.example.id
+  name                = "Rule-${element(keys(var.remote_port), count.index)}-${count.index}"
+  protocol            = "tcp"
+  frontend_port       = "5000${count.index + 1}"
+  backend_port = element(
+    var.remote_port[element(keys(var.remote_port), count.index)],
+    1,
+  )
+
+  frontend_ip_configuration_name = local.frontend_ip_configuration_name
+}
+
+# UPDATE: Health Probe for Internal Standard Load Balancer 
+resource "azurerm_lb_probe" "example" {
+  count               = length(var.lb_port)
+  
+  resource_group_name = azurerm_resource_group.example.name
+  loadbalancer_id     = azurerm_lb.example.id
+  name                = element(keys(var.lb_port), count.index)
+  protocol            = element(var.lb_port[element(keys(var.lb_port), count.index)], 1)
+  port                = element(var.lb_port[element(keys(var.lb_port), count.index)], 2)
+  interval_in_seconds = 5
+  number_of_probes    = 2
+}
+
+# UPDATE: LB rules for Internal Standard Load Balancer 
+resource "azurerm_lb_rule" "example" {
+  count                          = length(var.lb_port)
+  
+  resource_group_name            = azurerm_resource_group.example.name
+  loadbalancer_id                = azurerm_lb.example.id
+  name                           = element(keys(var.lb_port), count.index)
+  
+  protocol                       = element(var.lb_port[element(keys(var.lb_port), count.index)], 1)
+  frontend_port                  = element(var.lb_port[element(keys(var.lb_port), count.index)], 0)
+  backend_port                   = element(var.lb_port[element(keys(var.lb_port), count.index)], 2)
+  frontend_ip_configuration_name = local.frontend_ip_configuration_name
+  enable_floating_ip             = false
+  backend_address_pool_id        = azurerm_lb_backend_address_pool.example.id
+  idle_timeout_in_minutes        = 5
+  probe_id                       = element(azurerm_lb_probe.example.*.id, count.index)
+  
+  depends_on                     = [
+    azurerm_lb_probe.example
+  ]
+}
+
+# CREATE: Private Link Service to Internal Load Balancer
+resource "azurerm_private_link_service" "pls" {
+  name                = local.pls_load_balancer
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+
+  nat_ip_configuration {
+    name               = "ipconfig"
+    subnet_id          = data.azurerm_subnet.example.id
+    primary            = true
+  }
+  load_balancer_frontend_ip_configuration_ids = [azurerm_lb.example.frontend_ip_configuration.0.id]
 }
 
 # CREATE: Storage Account for Boot Diagnostics
@@ -86,7 +209,7 @@ resource "azurerm_private_endpoint" "diag" {
   name                = "${azurerm_storage_account.diag.name}-pe"
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
-  subnet_id           = azurerm_subnet.example.id
+  subnet_id           = data.azurerm_subnet.example.id
 
   private_service_connection {
     name                           = "${azurerm_storage_account.diag.name}-pecon"
@@ -173,104 +296,6 @@ resource "azurerm_private_dns_zone_virtual_network_link" "example" {
 }
 
 
-# CREATE: Internal Standard Load Balancer
-resource "azurerm_lb" "example" {
-  name                = local.lb_name
-  resource_group_name = azurerm_resource_group.example.name
-  location            = azurerm_resource_group.example.location
-  sku                 = "Standard"
-
-  frontend_ip_configuration {
-    name = local.frontend_ip_configuration_name
-    subnet_id = azurerm_subnet.example.id
-    private_ip_address_allocation = "Dynamic"
-  }
-  
-  tags = merge(
-    local.common_tags, 
-    {
-        display_name = "Azure Load Balancer"
-    }
-  )
-  
-  lifecycle {
-    ignore_changes = [
-      tags["created"],
-    ]
-  }
-}
-
-# UPDATE: Backend Address Pool for Internal Standard Load Balancer 
-resource "azurerm_lb_backend_address_pool" "example" {
-  resource_group_name = azurerm_resource_group.example.name
-  loadbalancer_id     = azurerm_lb.example.id
-  name                = local.backend_address_pool_name
-}
-
-# UPDATE: NAT rules for Internal Standard Load Balancer 
-resource "azurerm_lb_nat_rule" "example" {
-  count               = length(var.remote_port)
-  
-  resource_group_name = azurerm_resource_group.example.name
-  loadbalancer_id     = azurerm_lb.example.id
-  name                = "Rule-${element(keys(var.remote_port), count.index)}-${count.index}"
-  protocol            = "tcp"
-  frontend_port       = "5000${count.index + 1}"
-  backend_port = element(
-    var.remote_port[element(keys(var.remote_port), count.index)],
-    1,
-  )
-  frontend_ip_configuration_name = local.frontend_ip_configuration_name
-}
-
-# UPDATE: Health Probe for Internal Standard Load Balancer 
-resource "azurerm_lb_probe" "example" {
-  count               = length(var.lb_port)
-  
-  resource_group_name = azurerm_resource_group.example.name
-  loadbalancer_id     = azurerm_lb.example.id
-  name                = element(keys(var.lb_port), count.index)
-  protocol            = element(var.lb_port[element(keys(var.lb_port), count.index)], 1)
-  port                = element(var.lb_port[element(keys(var.lb_port), count.index)], 2)
-  interval_in_seconds = 5
-  number_of_probes    = 2
-}
-
-# UPDATE: LB rules for Internal Standard Load Balancer 
-resource "azurerm_lb_rule" "example" {
-  count                          = length(var.lb_port)
-  
-  resource_group_name            = azurerm_resource_group.example.name
-  loadbalancer_id                = azurerm_lb.example.id
-  name                           = element(keys(var.lb_port), count.index)
-  
-  protocol                       = element(var.lb_port[element(keys(var.lb_port), count.index)], 1)
-  frontend_port                  = element(var.lb_port[element(keys(var.lb_port), count.index)], 0)
-  backend_port                   = element(var.lb_port[element(keys(var.lb_port), count.index)], 2)
-  frontend_ip_configuration_name = local.frontend_ip_configuration_name
-  enable_floating_ip             = false
-  backend_address_pool_id        = azurerm_lb_backend_address_pool.example.id
-  idle_timeout_in_minutes        = 5
-  probe_id                       = element(azurerm_lb_probe.example.*.id, count.index)
-  
-  depends_on                     = [
-    azurerm_lb_probe.example
-  ]
-}
-
-# CREATE: Private Link Service to Internal Load Balancer
-resource "azurerm_private_link_service" "pls" {
-  name                = local.pls_load_balancer
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
-
-  nat_ip_configuration {
-    name               = "ipconfig"
-    subnet_id          = azurerm_subnet.example.id
-    primary            = true
-  }
-  load_balancer_frontend_ip_configuration_ids = [azurerm_lb.example.frontend_ip_configuration.0.id]
-}
 
 ##################################################
 # CREATE: Linux VM or VMSS - for Port Forwarding #
@@ -357,7 +382,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "example" {
     ip_configuration {
       name      = "ipconfig1"
       primary   = true
-      subnet_id = azurerm_subnet.example.id
+      subnet_id = data.azurerm_subnet.example.id
     }
   }
 

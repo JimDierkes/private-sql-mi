@@ -45,6 +45,8 @@ vnet_rg_name = "<replace-me>"
 
 vnet_name = "<replace-me>"
 
+subnet_name = "<replace-me>"
+
 ```
 
 * Run the following commands.

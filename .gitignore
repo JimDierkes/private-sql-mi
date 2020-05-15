@@ -31,4 +31,3 @@ override.tf.json
 # example: *tfplan*
 
 **/test/*
-scripts/cloudinit-old.tpl

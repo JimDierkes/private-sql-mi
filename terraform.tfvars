@@ -25,3 +25,5 @@ sql_mi_fqdn = "__sql_mi_fqdn__"
 vnet_rg_name = "__vnet_rg_name__"
 
 vnet_name = "__vnet_name__"
+
+subnet_name = "__subnet_name__"

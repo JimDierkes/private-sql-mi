@@ -1,5 +1,5 @@
 output "subnet_id" {
-  value = azurerm_subnet.example.id
+  value = data.azurerm_subnet.example.id
 }
 
 output "vmss_id" {
