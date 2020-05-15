@@ -7,6 +7,12 @@ locals {
   lb_name = "lb-${var.prefix}-${var.environment_name}"
   frontend_ip_configuration_name = "fip-${var.prefix}-${var.environment_name}"
   backend_address_pool_name = "bap-${var.prefix}-${var.environment_name}"
+  
+  outbound_pip_name = "pip-${var.prefix}-${var.environment_name}-outbound"
+  lb_name_outbound = "lb-${var.prefix}-${var.environment_name}-outbound"
+  frontend_ip_configuration_name_outbound = "fip-${var.prefix}-${var.environment_name}-outbound"
+  backend_address_pool_name_outbound = "bap-${var.prefix}-${var.environment_name}-outbound"
+  
   pls_load_balancer = "pls-${var.prefix}-${var.environment_name}"
 
   blob_private_dns_link_name = "dnslink-${var.prefix}-${var.environment_name}-blob"

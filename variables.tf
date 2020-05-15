@@ -28,7 +28,7 @@ variable "vm_size" {
 
 variable "vmss_instances" {
   type        = number
-  description = "If using VMSS specified the number of instances for the VMSS. Default is 2."
+  description = "If using VMSS specified the number of instances for the VMSS. Default is 1."
   default     = 1
 }
 
@@ -53,6 +53,14 @@ variable "vm_image_ref" {
   type        = map(string)
   description = "The VM Image Id to use for the VM or VMSS."
   default     = {}
+}
+
+# Load Balancer settings
+
+variable "outbound_internet_enabled" {
+  type        = bool
+  description = "If TRUE it will create a Public Standard Public IP and Load Balancer for Outbound Internet Connection."
+  default     = true
 }
 
 variable "remote_port" {
@@ -96,4 +104,3 @@ variable "subnet_address_space" {
   description = "The Address Space for Virtual Network Subnet to create VMSS. Required when creating a new subnet on existing VNET."
   default     = "10.0.1.0/24"
 }
-

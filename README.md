@@ -12,6 +12,14 @@ environment_name = "dev"
 
 location = "eastus2"
 
+common_tags = {
+    org_name    = "My Org"
+    cost_center = "12345"
+    project     = "port_fwd"
+    project_id  = "12345"
+    created_by  = "My Team"
+}
+
 vm_username = "vmadmin"
 
 vm_password = "<replace-me>"
@@ -29,13 +37,15 @@ vm_size = "Standard_DS1_v2"
 
 vmss_instances = 1
 
-common_tags = {
-    org_name    = "My Org"
-    cost_center = "12345"
-    project     = "port_fwd"
-    project_id  = "12345"
-    created_by  = "My Team"
-}
+outbound_internet_enabled = true
+
+remote_port = {
+    sql = ["Tcp", "1433"]
+  }
+
+lb_port = {
+    sql = ["1433", "Tcp", "1433"]
+  }
 
 # SQL MI target variables
 
@@ -46,6 +56,8 @@ vnet_rg_name = "<replace-me>"
 vnet_name = "<replace-me>"
 
 subnet_name = "<replace-me>"
+
+subnet_address_space = "10.0.1.0/24"
 
 ```
 

@@ -81,7 +81,6 @@ data "azurerm_subnet" "example" {
   ]
 }
 
-
 # CREATE: Internal Standard Load Balancer
 resource "azurerm_lb" "example" {
   name                = local.lb_name
@@ -94,7 +93,7 @@ resource "azurerm_lb" "example" {
     subnet_id = data.azurerm_subnet.example.id
     private_ip_address_allocation = "Dynamic"
   }
-  
+
   tags = merge(
     local.common_tags, 
     {
@@ -166,6 +165,71 @@ resource "azurerm_lb_rule" "example" {
   depends_on                     = [
     azurerm_lb_probe.example
   ]
+}
+
+
+
+# CREATE: Public IP for LB
+resource "azurerm_public_ip" "outbound" {
+  count = var.outbound_internet_enabled ? 1 : 0
+
+  name                = local.outbound_pip_name
+  resource_group_name = azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
+
+# CREATE: Public Standard Load Balancer
+resource "azurerm_lb" "outbound" {
+  count = var.outbound_internet_enabled ? 1 : 0
+
+  name                = local.lb_name_outbound
+  resource_group_name = azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  sku                 = "Standard"
+
+  frontend_ip_configuration {
+      name = local.frontend_ip_configuration_name_outbound
+      public_ip_address_id = azurerm_public_ip.outbound.0.id
+  }
+  
+  tags = merge(
+    local.common_tags, 
+    {
+        display_name = "Azure Load Balancer for Internet Outbound"
+    }
+  )
+  
+  lifecycle {
+    ignore_changes = [
+      tags["created"],
+    ]
+  }
+}
+
+# UPDATE: Backend Address Pool for Public Standard Load Balancer 
+resource "azurerm_lb_backend_address_pool" "outbound" {
+  count = var.outbound_internet_enabled ? 1 : 0
+
+  resource_group_name = azurerm_resource_group.example.name
+  loadbalancer_id     = azurerm_lb.outbound.0.id
+  name                = local.backend_address_pool_name_outbound
+}
+
+# UPDATE: LB Outbound rules for Public Standard Load Balancer 
+resource "azurerm_lb_outbound_rule" "outbound" {
+  count = var.outbound_internet_enabled ? 1 : 0
+
+  resource_group_name     = azurerm_resource_group.example.name
+  loadbalancer_id         = azurerm_lb.outbound.0.id
+  name                    = "OutboundRule"
+  protocol                = "All"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.outbound.0.id
+
+  frontend_ip_configuration {
+    name = local.frontend_ip_configuration_name_outbound
+  }
 }
 
 # CREATE: Private Link Service to Internal Load Balancer
@@ -265,7 +329,7 @@ resource "azurerm_private_dns_a_record" "diag" {
           display_name = "Private DNS record to Diagnostics Blob endpoint."
       }
   )
-    
+
   lifecycle {
     ignore_changes = [
       tags["created"],
@@ -294,8 +358,6 @@ resource "azurerm_private_dns_zone_virtual_network_link" "example" {
     ]
   }
 }
-
-
 
 ##################################################
 # CREATE: Linux VM or VMSS - for Port Forwarding #
@@ -383,6 +445,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "example" {
       name      = "ipconfig1"
       primary   = true
       subnet_id = data.azurerm_subnet.example.id
+      load_balancer_backend_address_pool_ids = var.outbound_internet_enabled ? [ azurerm_lb_backend_address_pool.example.id, azurerm_lb_backend_address_pool.outbound.0.id ] : [ azurerm_lb_backend_address_pool.example.id]
     }
   }
 
