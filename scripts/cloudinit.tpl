@@ -82,11 +82,10 @@ write_files:
   
 - content: |
     * * * * * /usr/bin/configureForwarding/configureForwarding.sh
-  path: ~/mycron
+  path: /usr/bin/configureForwarding/mycron
   permissions: '0755'
 
 runcmd:
-  - cd "/usr/bin/configureForwarding"
-  - ./configureForwarding.sh
-  - crontab ~/mycron
-  - /bin/rm -rf ~/mycron
+  - chmod ugo+rwx -R /usr/bin/configureForwarding
+  - crontab /usr/bin/configureForwarding/mycron
+  - /bin/rm -rf /usr/bin/configureForwarding/mycron
