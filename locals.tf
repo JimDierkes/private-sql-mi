@@ -2,10 +2,16 @@ locals {
   # General
   instance = "01"
  
-  base_name = "${var.prefix}-${var.environment_name}-${var.app_name}-${var.app_id}-${local.instance}"
+  base_name = "${var.prefix}-${var.environment_name}-${var.app_name}-${var.app_id}-${var.location}-${local.instance}"
 
   rg_name   = "${local.base_name}-rg"
+
+  default_vnet_name = "${local.base_name}-vnet"
   
+  vnet_rg_name = "${length(local.rg_name)>0 ? local.rg_name : var.vnet_rg_name}"
+
+  vnet_name = "${length(local.rg_name)>0 ? local.default_vnet_name : var.vnet_name}"
+
   nsg_name   = "${local.base_name}-default-nsg"
   
   lb_name = "${local.base_name}-lb"

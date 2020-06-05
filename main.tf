@@ -33,7 +33,7 @@ resource "azurerm_network_ddos_protection_plan" "example" {
 
 # CREATE: Virtual Network 
 resource "azurerm_virtual_network" "example" {
-  name                = var.vnet_name
+  name                = local.vnet_name
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
   address_space       = ["10.0.0.0/16"]
@@ -71,20 +71,20 @@ resource "azurerm_subnet" "PrivateEndpointSubnet" {
 # UPDATE: Assign Network Security Groups to Subnets
  resource "azurerm_subnet_network_security_group_association" "ForwarderSubnet" {
    subnet_id                 = azurerm_subnet.ForwarderSubnet.id
-   network_security_group_id = azurerm_network_security_group.example.id
+   network_security_group_id = azurerm_network_security_group.databricks.id
  }
  resource "azurerm_subnet_network_security_group_association" "PrivateLinkServiceSubnet" {
    subnet_id                 = azurerm_subnet.PrivateLinkServiceSubnet.id
-   network_security_group_id = azurerm_network_security_group.example.id
+   network_security_group_id = azurerm_network_security_group.default.id
  }
  resource "azurerm_subnet_network_security_group_association" "PrivateEndpointSubnet" {
    subnet_id                 = azurerm_subnet.PrivateEndpointSubnet.id
-   network_security_group_id = azurerm_network_security_group.example.id
+   network_security_group_id = azurerm_network_security_group.default.id
  }
 
 
 # CREATE: Network Security Group - Default rules.
-resource "azurerm_network_security_group" "example" {
+resource "azurerm_network_security_group" "default" {
   name                = local.nsg_name
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
@@ -96,6 +96,61 @@ resource "azurerm_network_security_group" "example" {
     }
   )
   
+  security_rule {
+    name                       = "DenyAllOutBound"
+    priority                   = 4096
+    direction                  = "Outbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      tags["created"],
+    ]
+  }
+}
+
+resource "azurerm_network_security_group" "databricks" {
+  name                = local.nsg_name
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+
+  tags = merge(
+    local.common_tags, 
+    {
+        display_name = "Default Network Security Group"
+    }
+  )
+
+  security_rule {
+    name                       = "AllowDatabricksOutBound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "TCP"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "AzureDatabricks"
+  }
+
+  security_rule {
+    name                       = "DenyAllOutBound"
+    priority                   = 4096
+    direction                  = "Outbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
   lifecycle {
     ignore_changes = [
       tags["created"],

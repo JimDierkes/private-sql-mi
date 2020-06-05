@@ -101,10 +101,12 @@ variable "vnet_rg_name" {
 
 variable "vnet_name" {
   type        = string
+  default     = ""
   description = "The Azure Virtual Network where target resource exists."
 }
 
 variable "subnet_name" {
   type        = string
+  default     = ""
   description = "The Subnet of existent Virtual Network to create VMSS. If doesn't exists will create it. Subnet must have enforce_private_link_endpoint_network_policies and enforce_private_link_service_network_policies enabled."
 }
