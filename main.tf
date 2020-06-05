@@ -146,35 +146,6 @@ resource "azurerm_network_security_group" "databricks" {
   }
 }
 
-# CREATE: Subnet
-# IF: Subnet doesn't exists
-# resource "azurerm_subnet" "example" {
-#   count = contains(data.azurerm_virtual_network.example.subnets, var.subnet_name) ? 0 : 1
-
-#   name                 = var.subnet_name
-#   resource_group_name  = var.vnet_rg_name
-#   virtual_network_name = var.vnet_name
-#   address_prefixes     = [var.subnet_address_space]
-
-#   enforce_private_link_endpoint_network_policies = true
-#   enforce_private_link_service_network_policies = true
-# }
-
-
-# GET: Subnet 
-# Subnet must have enabled:
-#  - enforce_private_link_endpoint_network_policies
-#  - enforce_private_link_service_network_policies
-# data "azurerm_subnet" "example" {
-#   name                 = var.subnet_name
-#   resource_group_name  = var.vnet_rg_name
-#   virtual_network_name = var.vnet_name
-
-#   depends_on = [
-#     azurerm_subnet.example
-#   ]
-# }
-
 # CREATE: Internal Standard Load Balancer
 resource "azurerm_lb" "example" {
   name                = local.lb_name
