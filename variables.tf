@@ -89,7 +89,7 @@ variable "lb_port" {
 
 # SQL MI target variables
 
-variable "sql_mi_fqdn" {
+variable "forwarder_fqdn_or_ip" {
   type        = string
   description = "The FQDN of the backend SQL MI host"
 }
@@ -107,10 +107,4 @@ variable "vnet_name" {
 variable "subnet_name" {
   type        = string
   description = "The Subnet of existent Virtual Network to create VMSS. If doesn't exists will create it. Subnet must have enforce_private_link_endpoint_network_policies and enforce_private_link_service_network_policies enabled."
-}
-
-variable "subnet_address_space" {
-  type        = string
-  description = "The Address Space for Virtual Network Subnet to create VMSS. Required when creating a new subnet on existing VNET."
-  default     = "10.0.1.0/24"
 }

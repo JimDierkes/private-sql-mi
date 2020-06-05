@@ -28,12 +28,10 @@ lb_port = __lb_port__
 
 # SQL MI target variables
 
-sql_mi_fqdn = "__sql_mi_fqdn__"
+forwarder_fqdn_or_ip = "__forwarder_fqdn_or_ip__"
 
 vnet_rg_name = "__vnet_rg_name__"
 
 vnet_name = "__vnet_name__"
 
 subnet_name = "__subnet_name__"
-
-subnet_address_space = "__subnet_address_space__"

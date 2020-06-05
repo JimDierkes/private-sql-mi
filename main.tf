@@ -420,7 +420,7 @@ data "template_file" "cloudinit" {
 
   vars = {
     # Comma separated string if specifying a list
-    fqdn_list = var.sql_mi_fqdn
+    fqdn_list = var.forwarder_fqdn_or_ip
     source_port_list = 1433
     destination_port_list = 1433
   }

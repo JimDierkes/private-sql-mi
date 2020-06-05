@@ -49,15 +49,13 @@ lb_port = {
 
 # SQL MI target variables
 
-sql_mi_fqdn = "<replace-me>"
+forwarder_fqdn_or_ip = "<replace-me>"
 
 vnet_rg_name = "<replace-me>"
 
 vnet_name = "<replace-me>"
 
 subnet_name = "<replace-me>"
-
-subnet_address_space = "10.0.1.0/24"
 
 ```
 
