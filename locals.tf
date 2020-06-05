@@ -12,7 +12,8 @@ locals {
 
   vnet_name = "${length(local.rg_name)>0 ? local.default_vnet_name : var.vnet_name}"
 
-  nsg_name   = "${local.base_name}-default-nsg"
+  default_nsg_name   = "${local.base_name}-default-nsg"
+  databricks_nsg_name   = "${local.base_name}-databricks-nsg"
   
   lb_name = "${local.base_name}-lb"
   frontend_ip_configuration_name = "${local.base_name}-fip"

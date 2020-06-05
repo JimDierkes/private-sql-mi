@@ -96,6 +96,7 @@ variable "forwarder_fqdn_or_ip" {
 
 variable "vnet_rg_name" {
   type        = string
+  default     = ""
   description = "The Azure Resource Group where the Virtual Network exists."
 }
 

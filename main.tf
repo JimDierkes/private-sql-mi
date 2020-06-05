@@ -73,7 +73,7 @@ resource "azurerm_subnet" "PrivateEndpointSubnet" {
 
 # CREATE: Network Security Group - Default rules.
 resource "azurerm_network_security_group" "default" {
-  name                = local.nsg_name
+  name                = local.default_nsg_name
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
 
@@ -104,7 +104,7 @@ resource "azurerm_network_security_group" "default" {
 }
 
 resource "azurerm_network_security_group" "databricks" {
-  name                = local.nsg_name
+  name                = local.databricks_nsg_name
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
 
@@ -464,8 +464,8 @@ data "template_file" "cloudinit" {
   vars = {
     # Comma separated string if specifying a list
     fqdn_list = var.forwarder_fqdn_or_ip
-    source_port_list = 1433
-    destination_port_list = 1433
+    source_port_list = 443
+    destination_port_list = 443
   }
 }
 
