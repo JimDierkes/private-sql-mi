@@ -16,20 +16,78 @@ resource "azurerm_resource_group" "example" {
   }
 }
 
-# GET: Virtual Network 
-data "azurerm_virtual_network" "example" {
-  resource_group_name = var.vnet_rg_name
-  name                = var.vnet_name
+# CREATE: DDOS Policy
+resource "azurerm_network_ddos_protection_plan" "example" {
+  name                = "ddospplan1"
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
 }
 
-# CREATE: Network Security Group - Default rules.
-# IF: Subnet doesn't exists
-resource "azurerm_network_security_group" "example" {
-  count = contains(data.azurerm_virtual_network.example.subnets, var.subnet_name) ? 0 : 1
 
+# GET: Virtual Network 
+# data "azurerm_virtual_network" "example" {
+#   resource_group_name = var.vnet_rg_name
+#   name                = var.vnet_name
+# }
+
+
+# CREATE: Virtual Network 
+resource "azurerm_virtual_network" "example" {
+  name                = var.vnet_name
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+  address_space       = ["10.0.0.0/16"]
+
+  ddos_protection_plan {
+    id     = azurerm_network_ddos_protection_plan.example.id
+    enable = false
+  }
+}
+
+resource "azurerm_subnet" "ForwarderSubnet" {
+  name                                           = "ForwarderSubnet"
+  resource_group_name                            = azurerm_resource_group.example.name
+  virtual_network_name                           = azurerm_virtual_network.example.name
+  address_prefix                                 = "10.0.0.0/24"
+}
+
+resource "azurerm_subnet" "PrivateLinkServiceSubnet" {
+  name                                           = "PrivateLinkServiceSubnet"
+  resource_group_name                            = azurerm_resource_group.example.name
+  virtual_network_name                           = azurerm_virtual_network.example.name
+  address_prefix                                 = "10.0.1.0/24"
+  enforce_private_link_service_network_policies  = true
+}
+
+resource "azurerm_subnet" "PrivateEndpointSubnet" {
+  name                                           = "PrivateEndpointSubnet"
+  resource_group_name                            = azurerm_resource_group.example.name
+  virtual_network_name                           = azurerm_virtual_network.example.name
+  address_prefix                                 = "10.0.2.0/24"
+  enforce_private_link_endpoint_network_policies = true
+}
+
+
+# UPDATE: Assign Network Security Groups to Subnets
+ resource "azurerm_subnet_network_security_group_association" "ForwarderSubnet" {
+   subnet_id                 = azurerm_subnet.ForwarderSubnet.id
+   network_security_group_id = azurerm_network_security_group.example.id
+ }
+ resource "azurerm_subnet_network_security_group_association" "PrivateLinkServiceSubnet" {
+   subnet_id                 = azurerm_subnet.PrivateLinkServiceSubnet.id
+   network_security_group_id = azurerm_network_security_group.example.id
+ }
+ resource "azurerm_subnet_network_security_group_association" "PrivateEndpointSubnet" {
+   subnet_id                 = azurerm_subnet.PrivateEndpointSubnet.id
+   network_security_group_id = azurerm_network_security_group.example.id
+ }
+
+
+# CREATE: Network Security Group - Default rules.
+resource "azurerm_network_security_group" "example" {
   name                = local.nsg_name
   location            = azurerm_resource_group.example.location
-  resource_group_name = var.vnet_rg_name
+  resource_group_name = azurerm_resource_group.example.name
 
   tags = merge(
     local.common_tags, 
@@ -47,39 +105,32 @@ resource "azurerm_network_security_group" "example" {
 
 # CREATE: Subnet
 # IF: Subnet doesn't exists
-resource "azurerm_subnet" "example" {
-  count = contains(data.azurerm_virtual_network.example.subnets, var.subnet_name) ? 0 : 1
+# resource "azurerm_subnet" "example" {
+#   count = contains(data.azurerm_virtual_network.example.subnets, var.subnet_name) ? 0 : 1
 
-  name                 = var.subnet_name
-  resource_group_name  = var.vnet_rg_name
-  virtual_network_name = var.vnet_name
-  address_prefixes     = [var.subnet_address_space]
+#   name                 = var.subnet_name
+#   resource_group_name  = var.vnet_rg_name
+#   virtual_network_name = var.vnet_name
+#   address_prefixes     = [var.subnet_address_space]
 
-  enforce_private_link_endpoint_network_policies = true
-  enforce_private_link_service_network_policies = true
-}
+#   enforce_private_link_endpoint_network_policies = true
+#   enforce_private_link_service_network_policies = true
+# }
 
-# UPDATE: Assign Default Network Security Group to Default Subnet
-resource "azurerm_subnet_network_security_group_association" "example" {
-  count = contains(data.azurerm_virtual_network.example.subnets, var.subnet_name) ? 0 : 1
-
-  subnet_id                 = azurerm_subnet.example.0.id
-  network_security_group_id = azurerm_network_security_group.example.0.id
-}
 
 # GET: Subnet 
 # Subnet must have enabled:
 #  - enforce_private_link_endpoint_network_policies
 #  - enforce_private_link_service_network_policies
-data "azurerm_subnet" "example" {
-  name                 = var.subnet_name
-  resource_group_name  = var.vnet_rg_name
-  virtual_network_name = var.vnet_name
+# data "azurerm_subnet" "example" {
+#   name                 = var.subnet_name
+#   resource_group_name  = var.vnet_rg_name
+#   virtual_network_name = var.vnet_name
 
-  depends_on = [
-    azurerm_subnet.example
-  ]
-}
+#   depends_on = [
+#     azurerm_subnet.example
+#   ]
+# }
 
 # CREATE: Internal Standard Load Balancer
 resource "azurerm_lb" "example" {
@@ -90,7 +141,7 @@ resource "azurerm_lb" "example" {
 
   frontend_ip_configuration {
     name = local.frontend_ip_configuration_name
-    subnet_id = data.azurerm_subnet.example.id
+    subnet_id = azurerm_subnet.ForwarderSubnet.id
     private_ip_address_allocation = "Dynamic"
   }
 
@@ -240,7 +291,7 @@ resource "azurerm_private_link_service" "pls" {
 
   nat_ip_configuration {
     name               = "ipconfig"
-    subnet_id          = data.azurerm_subnet.example.id
+    subnet_id          = azurerm_subnet.PrivateLinkServiceSubnet.id
     primary            = true
   }
   load_balancer_frontend_ip_configuration_ids = [azurerm_lb.example.frontend_ip_configuration.0.id]
@@ -273,7 +324,7 @@ resource "azurerm_private_endpoint" "diag" {
   name                = "${azurerm_storage_account.diag.name}-pe"
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
-  subnet_id           = data.azurerm_subnet.example.id
+  subnet_id           = azurerm_subnet.PrivateEndpointSubnet.id
 
   private_service_connection {
     name                           = "${azurerm_storage_account.diag.name}-pecon"
@@ -342,7 +393,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "example" {
   name                  = local.blob_private_dns_link_name
   resource_group_name   = azurerm_resource_group.example.name
   private_dns_zone_name = azurerm_private_dns_zone.blob.name
-  virtual_network_id    = data.azurerm_virtual_network.example.id
+  virtual_network_id    = azurerm_virtual_network.example.id
   registration_enabled  = false
   
   tags = merge(
@@ -444,7 +495,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "example" {
     ip_configuration {
       name      = "ipconfig1"
       primary   = true
-      subnet_id = data.azurerm_subnet.example.id
+      subnet_id = azurerm_subnet.ForwarderSubnet.id
       load_balancer_backend_address_pool_ids = var.outbound_internet_enabled ? [ azurerm_lb_backend_address_pool.example.id, azurerm_lb_backend_address_pool.outbound.0.id ] : [ azurerm_lb_backend_address_pool.example.id]
     }
   }

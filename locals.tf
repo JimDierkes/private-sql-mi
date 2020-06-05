@@ -1,21 +1,25 @@
 locals {
   # General
-  rg_name   = "${var.prefix}-${var.environment_name}-rg"
-  
-  nsg_name   = "${var.prefix}-${var.environment_name}-default-nsg"
-  
-  lb_name = "${var.prefix}-${var.environment_name}-lb"
-  frontend_ip_configuration_name = "${var.prefix}-${var.environment_name}-fip"
-  backend_address_pool_name = "${var.prefix}-${var.environment_name}-bap"
-  
-  outbound_pip_name = "${var.prefix}-${var.environment_name}-outbound-pip"
-  lb_name_outbound = "${var.prefix}-${var.environment_name}-outbound-lb"
-  frontend_ip_configuration_name_outbound = "${var.prefix}-${var.environment_name}-outbound-fip"
-  backend_address_pool_name_outbound = "${var.prefix}-${var.environment_name}-outbound-bap"
-  
-  pls_load_balancer = "${var.prefix}-${var.environment_name}-pls"
+  instance = "01"
+ 
+  base_name = "${var.prefix}-${var.environment_name}-${var.app_name}-${var.app_id}-${local.instance}"
 
-  blob_private_dns_link_name = "${var.prefix}-${var.environment_name}-blob-dnslink"
+  rg_name   = "${local.base_name}-rg"
+  
+  nsg_name   = "${local.base_name}-default-nsg"
+  
+  lb_name = "${local.base_name}-lb"
+  frontend_ip_configuration_name = "${local.base_name}-fip"
+  backend_address_pool_name = "${local.base_name}-bap"
+  
+  outbound_pip_name = "${local.base_name}-outbound-pip"
+  lb_name_outbound = "${local.base_name}-outbound-lb"
+  frontend_ip_configuration_name_outbound = "${local.base_name}-outbound-fip"
+  backend_address_pool_name_outbound = "${local.base_name}-outbound-bap"
+  
+  pls_load_balancer = "${local.base_name}-pls"
+
+  blob_private_dns_link_name = "${local.base_name}-blob-dnslink"
 
   common_tags = merge(
     var.common_tags, 
@@ -28,12 +32,12 @@ locals {
   
   # VMSS locals
 
-  vmss_name   = "vmss-${var.prefix}-${var.environment_name}-pf-vmss" 
+  vmss_name   = "${local.base_name}-pf-vmss" 
   
-  vm_computer_name   = "${var.prefix}-${var.environment_name}-pf"
+  vm_computer_name   = "${local.base_name}-pf"
   
-  vm_os_name   = "${var.prefix}-${var.environment_name}-pf-vm-os-disk"
+  vm_os_name   = "${local.base_name}-pf-vm-os-disk"
 
-  nic_name   = "${var.prefix}-${var.environment_name}-pf-vm-nic"
+  nic_name   = "${local.base_name}-pf-vm-nic"
 
 }

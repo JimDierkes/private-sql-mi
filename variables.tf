@@ -3,6 +3,16 @@ variable "prefix" {
   description = "The prefix for all your resources. Ex.: <prefix>-rg, <prefix>-vnet"
 }
 
+variable "app_name" {
+  type        = string
+  description = "Name or acronym for the app"
+}
+
+variable "app_id" {
+  type        = string
+  description = "The idenitifier for the app.  For example, pe, storage, dfs, db, adb"
+}
+
 variable "environment_name" {
   type        = string
   description = "Environment Name."
